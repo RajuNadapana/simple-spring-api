@@ -17,6 +17,17 @@ pipeline {
         SONAR_PROJECT_KEY = 'ashish-panicker_simple-spring-api'
         SONAR_PROJECT_NAME = 'simple-spring-api'
         SONAR_ORGANIZATION = 'ashish-panicker'
+        // --- Docker / Deploy ---
+        // Change these to match your Docker Hub (or any registry) and app details
+        APP_NAME              = 'simple-spring-api'
+        DOCKER_IMAGE          = "ashishspanicker/${APP_NAME}"    // <username>/<repo>
+        CONTAINER_NAME        = 'simple-spring-api'
+        APP_PORT              = '9595'                          // container port your app listens on
+        // Jenkins credential (username+password) for registry login
+        DOCKERHUB_CREDENTIALS = 'docker-credentials'
+        // Optional: set a host port different from container port (e.g., '9595:9595')
+        HOST_PORT_MAPPING     = '9595:9595'
+
     }
 
     stages {
@@ -89,6 +100,83 @@ pipeline {
             steps {
                 echo 'Deploying to a server...'
                 echo 'Deployment successful!'
+            }
+        }
+
+        // stage to build the Docker image
+        stage('Build Docker Image') {
+            steps {
+                script {
+                    // Use a deterministic image tag per build (BUILD_NUMBER) and also tag as 'latest'
+                    env.IMAGE_TAG = "${env.BUILD_NUMBER}"
+                }
+                sh """
+                    echo "Building Docker image: ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                    docker build --pull -t ${DOCKER_IMAGE}:${IMAGE_TAG} -t ${DOCKER_IMAGE}:latest .
+                """
+            }
+        }
+
+         stage('Docker Push Image') {
+            when {
+                // Only push from main branch; adjust as needed
+                branch 'main'
+            }
+            steps {
+                echo "Logging into registry and pushing ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                    sh '''
+                        echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+                        docker push '"${DOCKER_IMAGE}:${IMAGE_TAG}"'
+                        docker push '"${DOCKER_IMAGE}:latest"'
+                        docker logout || true
+                    '''
+                }
+            }
+        }
+
+        stage('Docker Deploy (Local)') {
+            when {
+                branch 'main'
+            }
+            steps {
+                echo "Deploying container ${CONTAINER_NAME} from ${DOCKER_IMAGE}:${IMAGE_TAG}"
+                sh """
+                    # Stop/remove existing container if present
+                    if [ "$(docker ps -aq -f name=${CONTAINER_NAME})" ]; then
+                      echo "Stopping existing container..."
+                      docker rm -f ${CONTAINER_NAME} || true
+                    fi
+
+                    # Run new container
+                    docker run -d --name ${CONTAINER_NAME} \
+                      -p ${HOST_PORT_MAPPING} \
+                      --restart unless-stopped \
+                      ${DOCKER_IMAGE}:${IMAGE_TAG}
+
+                    echo "Container deployed. Listening on ${HOST_PORT_MAPPING}"
+                """
+            }
+        }
+
+        stage('Health Check') {
+            steps {
+                script {
+                    echo "Checking health of deployed container..."
+
+                    // Try hitting the /actuator/health endpoint
+                    // Replace localhost with the remote host if deployed elsewhere
+                    def response = sh(
+                        script: "curl -s -o /dev/null -w \"%{http_code}\" http://localhost:9595/actuator/health",
+                        returnStdout: true
+                    ).trim()
+
+                    if (response == "200") {
+                        echo "Application is healthy (HTTP 200)."
+                    } else {
+                        error "Health check failed! Got HTTP status ${response}"
+                    }
+                }
             }
         }
     }
