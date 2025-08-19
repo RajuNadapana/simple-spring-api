@@ -106,6 +106,7 @@ pipeline {
         // stage to build the Docker image
         stage('Build Docker Image') {
             steps {
+                echo "Current branch: ${env.BRANCH_NAME}"
                 script {
                     // Use a deterministic image tag per build (BUILD_NUMBER) and also tag as 'latest'
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -118,7 +119,6 @@ pipeline {
         }
 
          stage('Docker Push Image') {
-            echo "Current branch: ${env.BRANCH_NAME}"
             when {
                 branch 'main'
             }
