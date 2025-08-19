@@ -106,7 +106,7 @@ pipeline {
         // stage to build the Docker image
         stage('Build Docker Image') {
             steps {
-                echo "Current branch: ${env.BRANCH_NAME}"
+                echo "Current branch: ${env.GIT_BRANCH}"
                 script {
                     // Use a deterministic image tag per build (BUILD_NUMBER) and also tag as 'latest'
                     env.IMAGE_TAG = "${env.BUILD_NUMBER}"
@@ -119,9 +119,9 @@ pipeline {
         }
 
          stage('Docker Push Image') {
-            when {
-                branch 'main'
-            }
+            // when {
+            //     branch 'main'
+            // }
             steps {
                 echo "Logging into registry and pushing ${DOCKER_IMAGE}:${IMAGE_TAG}"
                 withCredentials([usernamePassword(
@@ -140,9 +140,9 @@ pipeline {
         }
 
          stage('Docker Deploy (Local)') {
-            when {
-                branch 'main'
-            }
+            // when {
+            //     branch 'main'
+            // }
             steps {
                 echo "Deploying container ${CONTAINER_NAME} from ${DOCKER_IMAGE}:${IMAGE_TAG}"
                 sh '''
