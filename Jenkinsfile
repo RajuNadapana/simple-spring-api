@@ -3,8 +3,8 @@ pipeline {
 
     // Tools configured in Jenkins
     tools {
-        maven 'Maven-3.8.4'  // Make sure this matches your Jenkins Maven installation name
-        jdk 'jdk-21'          // Make sure this matches your Jenkins JDK installation name
+        maven 'Maven-3.8.4'  // Make sure this matches your Jenkins Maven installation
+        jdk 'JDK-21'         // Exact name from Jenkins (case-sensitive)
     }
 
     environment {
@@ -23,23 +23,43 @@ pipeline {
             steps {
                 script {
                     // Create local Maven repository folder
-                    sh 'mkdir -p $WORKSPACE/.m2/repository'
+                    if (isUnix()) {
+                        sh 'mkdir -p $WORKSPACE/.m2/repository'
+                    } else {
+                        bat 'mkdir "%WORKSPACE%\\.m2\\repository"'
+                    }
 
                     // Build the project with caching
-                    sh 'mvn clean install -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                    if (isUnix()) {
+                        sh 'mvn clean install -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                    } else {
+                        bat 'mvn clean install -B -Dmaven.repo.local=%WORKSPACE%\\.m2\\repository'
+                    }
                 }
             }
         }
 
         stage('Test') {
             steps {
-                sh 'mvn test -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn test -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                    } else {
+                        bat 'mvn test -B -Dmaven.repo.local=%WORKSPACE%\\.m2\\repository'
+                    }
+                }
             }
         }
 
         stage('Package') {
             steps {
-                sh 'mvn package -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                script {
+                    if (isUnix()) {
+                        sh 'mvn package -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                    } else {
+                        bat 'mvn package -B -Dmaven.repo.local=%WORKSPACE%\\.m2\\repository'
+                    }
+                }
             }
         }
     }
