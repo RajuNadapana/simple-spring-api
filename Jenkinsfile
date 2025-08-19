@@ -1,48 +1,59 @@
 pipeline {
     agent any
 
+    // Tools configured in Jenkins
     tools {
-        maven 'Maven-3.9.6' // your Maven installation name in Jenkins
-        jdk 'JDK-21'        // your JDK installation name in Jenkins
+        maven 'Maven-3.8.4'  // Make sure this matches your Jenkins Maven installation name
+        jdk 'jdk-21'          // Make sure this matches your Jenkins JDK installation name
     }
 
     environment {
-        SONAR_PROJECT_KEY = 'my-project'
-        SONAR_ORGANIZATION = 'my-org'
-        SONAR_PROJECT_NAME = 'simple-spring-api'
+        MAVEN_OPTS = "-Dmaven.repo.local=$WORKSPACE/.m2/repository"
     }
 
     stages {
+
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/RajuNadapana/simple-spring-api.git'
+            }
+        }
+
         stage('Build') {
             steps {
-                echo 'Building with Maven...'
-                bat 'mvn clean install'
+                script {
+                    // Create local Maven repository folder
+                    sh 'mkdir -p $WORKSPACE/.m2/repository'
+
+                    // Build the project with caching
+                    sh 'mvn clean install -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
+                }
             }
         }
 
         stage('Test') {
             steps {
-                echo 'Running tests...'
-                bat 'mvn test'
+                sh 'mvn test -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
             }
         }
 
-        stage('SonarQube Analysis') {
+        stage('Package') {
             steps {
-                echo 'Running SonarQube...'
-                bat """
-                    mvn sonar:sonar ^
-                    -Dsonar.projectKey=%SONAR_PROJECT_KEY% ^
-                    -Dsonar.organization=%SONAR_ORGANIZATION% ^
-                    -Dsonar.projectName=%SONAR_PROJECT_NAME%
-                """
+                sh 'mvn package -B -Dmaven.repo.local=$WORKSPACE/.m2/repository'
             }
         }
     }
 
     post {
         always {
-            echo "Pipeline finished with status: ${currentBuild.currentResult}"
+            echo "Cleaning up workspace"
+            cleanWs()
+        }
+        success {
+            echo "Build Successful!"
+        }
+        failure {
+            echo "Build Failed!"
         }
     }
 }
