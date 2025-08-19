@@ -119,29 +119,32 @@ pipeline {
 
          stage('Docker Push Image') {
             when {
-                // Only push from main branch; adjust as needed
                 branch 'main'
             }
             steps {
                 echo "Logging into registry and pushing ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                withCredentials([usernamePassword(credentialsId: "${DOCKERHUB_CREDENTIALS}", usernameVariable: 'DOCKERHUB_USERNAME', passwordVariable: 'DOCKERHUB_PASSWORD')]) {
+                withCredentials([usernamePassword(
+                    credentialsId: "${DOCKERHUB_CREDENTIALS}",
+                    usernameVariable: 'DOCKERHUB_USERNAME',
+                    passwordVariable: 'DOCKERHUB_PASSWORD'
+                )]) {
                     sh '''
                         echo "$DOCKERHUB_PASSWORD" | docker login -u "$DOCKERHUB_USERNAME" --password-stdin
-                        docker push '"${DOCKER_IMAGE}:${IMAGE_TAG}"'
-                        docker push '"${DOCKER_IMAGE}:latest"'
+                        docker push ${DOCKER_IMAGE}:${IMAGE_TAG}
+                        docker push ${DOCKER_IMAGE}:latest
                         docker logout || true
                     '''
                 }
             }
         }
 
-        stage('Docker Deploy (Local)') {
+         stage('Docker Deploy (Local)') {
             when {
                 branch 'main'
             }
             steps {
                 echo "Deploying container ${CONTAINER_NAME} from ${DOCKER_IMAGE}:${IMAGE_TAG}"
-                sh """
+                sh '''
                     # Stop/remove existing container if present
                     if [ "$(docker ps -aq -f name=${CONTAINER_NAME})" ]; then
                       echo "Stopping existing container..."
@@ -155,9 +158,10 @@ pipeline {
                       ${DOCKER_IMAGE}:${IMAGE_TAG}
 
                     echo "Container deployed. Listening on ${HOST_PORT_MAPPING}"
-                """
+                '''
             }
         }
+
 
         stage('Health Check') {
             steps {
