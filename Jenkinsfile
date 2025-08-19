@@ -118,6 +118,7 @@ pipeline {
         }
 
          stage('Docker Push Image') {
+            echo "Current branch: ${env.BRANCH_NAME}"
             when {
                 branch 'main'
             }
