@@ -1,12 +1,18 @@
 pipeline {
-    
     agent {
         docker {
-            // Use a Docker image that has JDK 21 and Maven installed
-            // You can use an official maven image with OpenJDK 21
+            // Official Maven image with JDK 21
             image 'maven:3.9.6-eclipse-temurin-21'
-            args '-v /root/.m2:/root/.m2'  // cache maven dependencies
+
+            // Mount Maven repo to a directory accessible to the container user
+            // Adjust this path if needed for your Jenkins host
+            args '-v /var/jenkins_home/.m2:/home/jenkins/.m2'
         }
+    }
+
+    environment {
+        // Set Maven to use a custom local repository path
+        MAVEN_OPTS = "-Dmaven.repo.local=/home/jenkins/.m2/repository"
     }
 
     stages {
